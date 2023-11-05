@@ -1,15 +1,21 @@
 import pygame
-from grid import create_grid, generate_random_objects, player_x, player_y, update_player
-from legend import render_legend
-# Other imports...
+import grid
+import legend
 
 def main():
     pygame.init()
 
-    # Initialize Pygame and set up the window...
 
-    grid = create_grid()
-    generate_random_objects(grid)
+    grid_width = 128
+    grid_height = 128
+    cell_size = 8
+
+    screen = pygame.display.set_mode((grid_width * cell_size, grid_height * cell_size))
+    pygame.display.set_caption("AI Village Game")
+
+    grid.create_grid()
+    grid.generate_random_objects()
+    legend_data = legend.legend_data
 
     clock = pygame.time.Clock()
 
@@ -20,13 +26,18 @@ def main():
                 running = False
 
         keys = pygame.key.get_pressed()
-        update_player(keys, grid)
+        
+        grid.update_player(keys)
+        
+        grid.checkCollision()
 
         screen.fill((0, 0, 0))
 
-        # Redraw the grid, player, and legend
-        # Call functions from grid.py and legend.py
-
+        grid.draw_grid(screen, legend_data, cell_size)
+        grid.draw_player(screen, cell_size)
+        
+        legend.render_legend(screen, legend_data, cell_size)
+        
         pygame.display.flip()
         clock.tick(30)
 

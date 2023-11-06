@@ -1,12 +1,49 @@
 import pygame
 import clock
+import random
+
 pygame.init()
-# Set your grid size and cell size
+
+#set variables for harvesting
+harvesting = False
+harvest_start_time = 0
+wood_total = 0
+wood_gathered = 0
+treeHarvestTime = 1000 #in milliseconds
+
+#Mill building variables
+storing_start_time = 0
+storing = False
+storageMax = False
+
+storeWoodTime = 3000 # in milliseconds
+
+#change how much wood needed for spawning houses
+spawnTrees_woodNeeded = 4
+
+#change amount of Trees to spawn
+spawnTreesStart = 1
+spawnTreesEnd = 5
+
+#change houses group spawn
+spawnHousesStart = 5
+spawnHousesEnd = 13
+
+#Set your grid size and cell size
 grid_width = 150
 grid_height = 150
 cell_size = 8
-wood_total = 0
-wood_gathered = 0
+
+#Spawn Variables
+group_x=0
+group_y=0
+num_houses = 5
+num_trees = 20
+
+# Define player
+player_size = 2  # Double the size of the trees
+
+
 
 # Create a clock to measure time
 clock = pygame.time.Clock()
@@ -25,42 +62,20 @@ def create_grid():
 #create the grid and store it
 grid = create_grid()
 
-# Define player
-player_size = 2  # Double the size of the trees
-
-# Generate houses and trees
-import random
-harvesting = False
-harvest_start_time = 0
-num_houses = 5
-num_trees = 20
-#mill
-storing_start_time = 0
-storing = False
-storageMax = False
 
 #dev-debug
 # def display_grid_to_console():
 #     for row in grid:
 #         print(" ".join(row))
 
-def generate_random_objects():
+
+def generate_houses():
     global group_x, group_y
     # Generate a group of 4-5 houses grouped together
-    group_size = random.randint(8, 20)
+    group_size = random.randint(spawnHousesStart, spawnHousesEnd)
     group_x = random.randint(0, grid_width - group_size)
     group_y = random.randint(0, grid_height - 1)
-    mill_group = 1
-
-    # Generate mill (3x3 grid of "M")
-    for _ in range(mill_group):
-        for i in range(3):
-            for j in range(3):
-                x = group_x + i
-                y = group_y + j
-                if 0 <= x < grid_width and 0 <= y < grid_height and grid[y][x] != 'H':
-                    grid[y][x] = 'M'  # 'M' represents a mill
-
+        
     for _ in range(group_size):
         x = group_x + random.randint(3, 5)
         y = group_y + random.randint(2, 7)
@@ -74,17 +89,44 @@ def generate_random_objects():
         x, y = random.randint(0, grid_width - 1), random.randint(0, grid_height - 1)
         if grid[y][x] != 'H':
             grid[y][x] = 'H'  # 'H' represents a house
+    
+def generate_mills():
+    global group_x, group_y
 
+    mill_group = 1
+
+    # Generate mill (3x3 grid of "M")
+    for _ in range(mill_group):
+        for i in range(3):
+            for j in range(3):
+                x = group_x + i
+                y = group_y + j
+                if 0 <= x < grid_width and 0 <= y < grid_height and grid[y][x] != 'H':
+                    grid[y][x] = 'M'  # 'M' represents a mill
+                    
+def generate_trees():
     # Generate the trees randomly
     for _ in range(num_trees):
         x, y = random.randint(0, grid_width - 1), random.randint(0, grid_height - 1)
         if grid[y][x] != 'H':
             grid[y][x] = 'T'  # 'T' represents a tree
-
-    # Print the grid to the console
-
             
-generate_random_objects()
+def respawn_trees():
+    global wood_total
+    num_trees_spawned = random.randint(spawnTreesStart, spawnTreesEnd) 
+    if wood_total == spawnTrees_woodNeeded: 
+        for _ in range(num_trees_spawned):
+            x, y = random.randint(0, grid_width - 1), random.randint(0, grid_height - 1)
+            if grid[y][x] != 'H':
+                grid[y][x] = 'T'  # 'T' represents a tree
+                draw_grid(screen, legend_data, cell_size)
+
+generate_houses()
+
+generate_mills()
+
+generate_trees()
+
 
 player_x, player_y = group_x + 3, group_y + 3  # Starting position
 
@@ -130,10 +172,12 @@ def checkCollision():
         store_wood()
         
         #fix wood being added twice every time we sit beside it for 4000 seconds.
+        
 def store_wood():
     global wood_total, storing, storing_start_time, storageMax, wood_gathered
     if wood_gathered < 0:
-        print("No wood left to store!")
+        #do something if we have no wood.
+        pass
     elif wood_gathered > 0:
         if not storing:
             # If harvesting is not in progress, check if the player is touching a tree on their edges
@@ -145,9 +189,8 @@ def store_wood():
                         storing = True
                         storing_start_time = pygame.time.get_ticks()
 
-        elif pygame.time.get_ticks() - storing_start_time >= 3000:
+        elif pygame.time.get_ticks() - storing_start_time >= storeWoodTime:
             # After the 10-second delay, remove the tree that the player was touching
-                
             for dx in range(-1, player_size + 1):
                 for dy in range(-1, player_size + 1):
                     cell_x = player_x + dx
@@ -155,7 +198,7 @@ def store_wood():
                     if 0 <= cell_x < grid_width and 0 <= cell_y < grid_height and grid[cell_y][cell_x] == 'M':
                         wood_total += wood_gathered
                         wood_gathered = 0
-                        print("Wood Gathered: " + str(wood_gathered) + "Total: " +str(wood_total))
+                        respawn_trees() #call respawn trees once we deposit, maybe we have enough wood
                         storing_start_time = pygame.time.get_ticks()
                         return wood_gathered
 
@@ -172,7 +215,7 @@ def harvest_tree(player_x, player_y):
                     harvesting = True
                     harvest_start_time = pygame.time.get_ticks()
 
-    elif pygame.time.get_ticks() - harvest_start_time >= 1000:
+    elif pygame.time.get_ticks() - harvest_start_time >= treeHarvestTime:
         # After the 10-second delay, remove the tree that the player was touching
         for dx in range(-1, player_size + 1):
             for dy in range(-1, player_size + 1):
@@ -181,7 +224,6 @@ def harvest_tree(player_x, player_y):
                 if 0 <= cell_x < grid_width and 0 <= cell_y < grid_height and grid[cell_y][cell_x] == 'T':
                     grid[cell_y][cell_x] = ' '
                     wood_gathered += 2
-                    print("Wood Harvested")
                     harvest_start_time = pygame.time.get_ticks()
 
         draw_grid(screen, legend_data, cell_size)
@@ -223,7 +265,6 @@ def draw_player():
     # Draw the player
     pygame.draw.rect(screen, (0, 0, 255), pygame.Rect(player_x * cell_size, player_y * cell_size, player_size * cell_size, player_size * cell_size))
     
-
 def draw_mill():
     mill_color = (112, 73, 29)
     mill_size = 1.8  # Adjust this value to match the size of the 'M' grid
@@ -234,7 +275,6 @@ def draw_mill():
                 mill_y = y * cell_size - (mill_size - 1) * cell_size / 2
                 pygame.draw.rect(screen, mill_color, pygame.Rect(mill_x, mill_y, mill_size * cell_size, mill_size * cell_size))
 
-    
 def draw_legend(legend_data):
     # Draw the legend
     legend_x, legend_y = 10, 10
@@ -268,8 +308,6 @@ def draw_grid(screen, legend_data, cell_size):
     
     #draw_legend(legend_data)
 
-
-
 # Initialize the game loop
 running = True
 while running:
@@ -284,6 +322,8 @@ while running:
         
     checkCollision()
 
+    
+    
     # Clear the screen
     screen.fill((0, 0, 0))
 
@@ -291,8 +331,7 @@ while running:
 
     pygame.display.flip()
     
-    #print("gathered: "+ str(wood_gathered))
-    #print("Stored wood: " + str(wood_total))
+
 
     clock.tick(30)
     
